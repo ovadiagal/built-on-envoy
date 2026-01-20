@@ -2,6 +2,7 @@ name: auth-jwt
 version: 1.2.0
 category: Security
 author: Tetrate
+featured: true
 description: JWT authentication and validation with JWKS endpoint support
 longDescription: |
   Comprehensive JWT authentication extension with support for JWKS endpoints,

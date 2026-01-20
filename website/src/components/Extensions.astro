@@ -1,74 +1,56 @@
+---
+import ExtensionCard from './ExtensionCard.astro';
+import { parse } from 'yaml';
+import fs from 'fs';
+import path from 'path';
+
+// Read all extension manifests
+const extensionsDir = path.join(process.cwd(), '../extensions');
+const extensionFolders = fs.readdirSync(extensionsDir)
+	.filter(item => {
+		const itemPath = path.join(extensionsDir, item);
+		return fs.statSync(itemPath).isDirectory();
+	});
+
+interface Extension {
+	name: string;
+	version: string;
+	category: string;
+	author: string;
+	featured?: boolean;
+	description: string;
+	longDescription: string;
+	tags: string[];
+	license: string;
+}
+
+const featuredExtensions: Extension[] = extensionFolders
+	.map(folder => {
+		const manifestPath = path.join(extensionsDir, folder, 'manifest.yaml');
+		if (!fs.existsSync(manifestPath)) return null;
+
+		const manifestContent = fs.readFileSync(manifestPath, 'utf-8');
+		const manifest = parse(manifestContent) as Extension;
+		return manifest;
+	})
+	.filter((ext): ext is Extension => ext !== null && ext.featured === true)
+	.sort((a, b) => a.name.localeCompare(b.name));
+---
+
 <section class="extensions" id="extensions">
 	<div class="container">
 		<h2>Featured Extensions</h2>
 		<p class="section-subtitle">Community-maintained extensions ready to use</p>
 
 		<div class="extensions-grid">
-			<div class="extension-card">
-				<div class="extension-header">
-					<h3>rate-limiter</h3>
-					<span class="extension-badge">Popular</span>
-				</div>
-				<p>Token bucket rate limiting with Redis backend support</p>
-				<div class="extension-footer">
-					<code>ee run --plugin rate-limiter</code>
-				</div>
-			</div>
-
-			<div class="extension-card">
-				<div class="extension-header">
-					<h3>auth-jwt</h3>
-					<span class="extension-badge">Security</span>
-				</div>
-				<p>JWT authentication and validation with JWKS endpoint support</p>
-				<div class="extension-footer">
-					<code>ee run --plugin auth-jwt</code>
-				</div>
-			</div>
-
-			<div class="extension-card">
-				<div class="extension-header">
-					<h3>cors</h3>
-					<span class="extension-badge">Network</span>
-				</div>
-				<p>Configurable CORS policy with wildcard and regex support</p>
-				<div class="extension-footer">
-					<code>ee run --plugin cors</code>
-				</div>
-			</div>
-
-			<div class="extension-card">
-				<div class="extension-header">
-					<h3>request-logger</h3>
-					<span class="extension-badge">Observability</span>
-				</div>
-				<p>Advanced request/response logging with custom formatters</p>
-				<div class="extension-footer">
-					<code>ee run --plugin request-logger</code>
-				</div>
-			</div>
-
-			<div class="extension-card">
-				<div class="extension-header">
-					<h3>transform-headers</h3>
-					<span class="extension-badge">Transform</span>
-				</div>
-				<p>Add, modify, or remove headers with templating support</p>
-				<div class="extension-footer">
-					<code>ee run --plugin transform-headers</code>
-				</div>
-			</div>
-
-			<div class="extension-card">
-				<div class="extension-header">
-					<h3>cache</h3>
-					<span class="extension-badge">Performance</span>
-				</div>
-				<p>HTTP caching with TTL control and cache key customization</p>
-				<div class="extension-footer">
-					<code>ee run --plugin cache</code>
-				</div>
-			</div>
+			{featuredExtensions.map(ext => (
+				<ExtensionCard
+					name={ext.name}
+					category={ext.category}
+					description={ext.description}
+					href={`/extensions/${ext.name}`}
+				/>
+			))}
 		</div>
 
 		<div class="browse-all">

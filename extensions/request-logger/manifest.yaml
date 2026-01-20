@@ -2,6 +2,7 @@ name: request-logger
 version: 1.0.0
 category: Observability
 author: Tetrate
+featured: true
 description: Advanced request/response logging with custom formatters
 longDescription: |
   A powerful logging extension that captures detailed request and response information.
