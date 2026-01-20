@@ -1,5 +1,6 @@
 ---
 import { GITHUB_REPO, SLACK } from '../constants';
+import ExternalLink from './ExternalLink.astro';
 ---
 
 <footer>
@@ -13,23 +14,13 @@ import { GITHUB_REPO, SLACK } from '../constants';
 				<h4>Resources</h4>
 				<a href="/docs">Documentation</a>
 				<a href="/extensions">Extensions</a>
-				<a href="https://www.tetrate.io/" target="_blank" rel="noopener noreferrer" class="external-link">
-					Tetrate
-					&nbsp;
-					<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-						<path d="M10.5 1.5L1.5 10.5M10.5 1.5H4.5M10.5 1.5V7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-				</a>
+				<ExternalLink text="Tetrate" href="https://www.tetrate.io/" />
 			</div>
 			<div class="footer-section">
 				<h4>Community</h4>
-				<a href="https://www.envoyproxy.io/" target="_blank" rel="noopener noreferrer" class="external-link">
-					Envoy Proxy
-					&nbsp;
-					<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-						<path d="M10.5 1.5L1.5 10.5M10.5 1.5H4.5M10.5 1.5V7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-				</a>
+				<ExternalLink text="Envoy Proxy" href="https://www.envoyproxy.io/" />
+				<ExternalLink text="Envoy Gateway" href="https://gateway.envoyproxy.io/" />
+				<ExternalLink text="Envoy AI Gateway" href="https://aigateway.envoyproxy.io/" />
 				<div class="social-links">
 					<a href={GITHUB_REPO} aria-label="GitHub" class="social-icon">
 						<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">

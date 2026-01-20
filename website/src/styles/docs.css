@@ -46,7 +46,7 @@
 	font-weight: 600;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
-	color: #4c1d95;
+	color: var(--primary-dark);
 	margin: 0;
 	text-align: left;
 }
@@ -54,7 +54,7 @@
 .chevron {
 	flex-shrink: 0;
 	transition: transform 0.2s;
-	color: #6b7280;
+	color: var(--text-gray);
 	margin-left: auto;
 }
 
@@ -87,7 +87,7 @@
 .sidebar-section a {
 	display: block;
 	padding: 8px 12px;
-	color: #6b7280;
+	color: var(--text-gray);
 	text-decoration: none;
 	border-radius: 6px;
 	font-size: 16px;
@@ -102,6 +102,12 @@
 .sidebar-section a.active {
 	color: var(--primary);
 	background: rgba(124, 58, 237, 0.12);
+}
+
+.sidebar-section a:focus,
+.section-toggle:focus {
+	outline: none;
+	box-shadow: var(--focus-ring);
 }
 
 .docs-main {
@@ -139,7 +145,7 @@
 	font-size: 42px;
 	font-weight: 700;
 	margin: 0 0 24px 0;
-	color: #4c1d95;
+	color: var(--primary-dark);
 	line-height: 1.2;
 }
 
@@ -147,7 +153,7 @@
 	font-size: 32px;
 	font-weight: 700;
 	margin: 48px 0 16px 0;
-	color: #4b5563;
+	color: var(--text-gray-dark);
 	border-bottom: 2px solid var(--border);
 	padding-bottom: 8px;
 }
@@ -156,14 +162,14 @@
 	font-size: 24px;
 	font-weight: 600;
 	margin: 32px 0 12px 0;
-	color: #4b5563;
+	color: var(--text-gray-dark);
 }
 
 .prose h4 {
 	font-size: 20px;
 	font-weight: 600;
 	margin: 24px 0 12px 0;
-	color: #6b7280;
+	color: var(--text-gray);
 }
 
 .prose p {

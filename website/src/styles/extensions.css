@@ -10,7 +10,7 @@
 .page-hero h1 {
 	font-size: 48px;
 	font-weight: 700;
-	color: #4c1d95;
+	color: var(--primary-dark);
 	margin-bottom: 16px;
 }
 
@@ -115,7 +115,25 @@
 	border-color: var(--primary-light);
 }
 
+.extension-card-link:focus {
+	outline: none;
+	border-radius: 12px;
+}
+
+.extension-card-link:focus .extension-card {
+	box-shadow: var(--focus-ring), 0 8px 24px rgba(124, 58, 237, 0.15), 0 4px 12px rgba(6, 182, 212, 0.1);
+	border-color: var(--primary-light);
+}
+
 /* Responsive Styles */
+/* Tablet breakpoint */
+@media (max-width: 1024px) {
+	.extensions-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+/* Mobile breakpoint */
 @media (max-width: 768px) {
 	.page-hero h1 {
 		font-size: 36px;

@@ -40,6 +40,18 @@
 	--info-light: #dbeafe;
 	--warning: #f59e0b;
 	--warning-light: #fef3c7;
+
+	/* Additional text colors */
+	--text-secondary: #475569;
+	--text-gray: #6b7280;
+	--text-gray-dark: #4b5563;
+
+	/* Additional background colors */
+	--bg-secondary: #f1f5f9;
+
+	/* Focus styles */
+	--focus-ring: 0 0 0 3px rgba(124, 58, 237, 0.3);
+	--focus-ring-accent: 0 0 0 3px rgba(6, 182, 212, 0.3);
 }
 
 body {
@@ -122,6 +134,12 @@ nav a {
 
 nav a:hover {
 	color: var(--primary-light);
+}
+
+nav a:focus {
+	outline: none;
+	box-shadow: var(--focus-ring);
+	border-radius: 4px;
 }
 
 .github-icon {
@@ -268,6 +286,12 @@ nav a:hover {
 
 .copy-btn:hover {
 	background: rgba(255, 255, 255, 0.2);
+}
+
+.copy-btn:focus {
+	outline: none;
+	background: rgba(255, 255, 255, 0.25);
+	box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
 }
 
 .install-note {
@@ -467,6 +491,16 @@ nav a:hover {
 	border-color: var(--primary-light);
 }
 
+.extension-card-link:focus {
+	outline: none;
+	border-radius: 12px;
+}
+
+.extension-card-link:focus .extension-card {
+	box-shadow: var(--focus-ring), 0 8px 24px rgba(124, 58, 237, 0.15), 0 4px 12px rgba(6, 182, 212, 0.1);
+	border-color: var(--primary-light);
+}
+
 .browse-all {
 	text-align: center;
 }
@@ -593,6 +627,16 @@ nav a:hover {
 	color: white;
 }
 
+.btn-primary:focus,
+.btn-secondary:focus {
+	outline: none;
+	box-shadow: var(--focus-ring);
+}
+
+.btn-primary:focus {
+	box-shadow: var(--focus-ring), 0 8px 20px rgba(124, 58, 237, 0.3);
+}
+
 /* Footer */
 footer {
 	background: var(--bg-code);
@@ -645,16 +689,25 @@ footer {
 	color: var(--accent);
 }
 
+.footer-section a:focus {
+	outline: none;
+	box-shadow: var(--focus-ring-accent);
+	border-radius: 4px;
+	color: var(--accent);
+}
+
 .external-link {
-	display: inline-flex;
-	align-items: center;
-	gap: 25px;
+	display: inline;
 }
 
 .external-link svg {
-	width: 12px;
-	height: 12px;
+	display: inline-block;
+	width: 10px;
+	height: 10px;
 	opacity: 0.7;
+	margin-left: 4px;
+	vertical-align: middle;
+	margin-top: -2px;
 }
 
 .external-link:hover svg {
@@ -681,6 +734,13 @@ footer {
 	transform: translateY(-2px);
 }
 
+.social-icon:focus {
+	outline: none;
+	box-shadow: var(--focus-ring-accent);
+	border-radius: 4px;
+	color: var(--accent);
+}
+
 .social-icon svg {
 	width: 24px;
 	height: 24px;
@@ -698,6 +758,27 @@ footer {
 }
 
 /* Responsive */
+/* Tablet breakpoint */
+@media (max-width: 1024px) {
+	.feature-grid {
+		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	}
+
+	.extensions-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	.cli-grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	.cli-grid .cli-item:nth-child(5),
+	.cli-grid .cli-item:nth-child(6) {
+		grid-column: auto;
+	}
+}
+
+/* Mobile breakpoint */
 @media (max-width: 768px) {
 	.logo-icon {
 		height: 44px;

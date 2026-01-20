@@ -180,6 +180,12 @@
 	border-color: rgba(255, 255, 255, 0.3);
 }
 
+.copy-btn:focus {
+	outline: none;
+	background: rgba(255, 255, 255, 0.25);
+	box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
 .quick-start p {
 	color: var(--text);
 	margin-bottom: 16px;
@@ -247,6 +253,12 @@
 .resource-links a:hover {
 	color: var(--primary-light);
 	text-decoration: underline;
+}
+
+.resource-links a:focus {
+	outline: none;
+	box-shadow: var(--focus-ring);
+	border-radius: 4px;
 }
 
 /* Responsive Styles */
