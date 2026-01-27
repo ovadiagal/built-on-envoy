@@ -32,10 +32,13 @@ jobs:
               - '!examples/**'
               - '!website/**'
               - '!CODEOWNERS'
+            website:
+              - 'website/**'
           predicate-quantifier: every  # Make the filters be AND-ed
           token: "" # don't use github api
     outputs:
       code: ${{ steps.changes.outputs.code }}
+      website: ${{ steps.changes.outputs.website }}
 
   check:
     needs: changes
@@ -49,6 +52,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
       - run: make check
 
   build:
@@ -63,6 +67,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
       - run: make build
 
   test:
@@ -79,6 +84,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
       - run: make test
 
   coverage:
@@ -93,6 +99,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
       - run: make test-coverage
       - uses: codecov/codecov-action@v4
         with:
@@ -110,6 +117,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
       - run: make test-e2e
 
   lint:
@@ -124,7 +132,23 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
       - run: make lint
+
+  website:
+    needs: changes
+    if: ${{ needs.changes.outputs.website == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run build
 
   # Aggregate all the required jobs and make it easier to customize CI required jobs
   cli-checks:
@@ -135,6 +159,7 @@ jobs:
       - test
       - e2e
       - lint
+      - website
     # We need this to run always to force-fail (and not skip) if any needed
     # job has failed. Otherwise, a skipped job will not fail the workflow.
     if: always()
