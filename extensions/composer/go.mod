@@ -5,7 +5,7 @@
 
 module github.com/tetratelabs/built-on-envoy/extensions/composer
 
-go 1.25.6
+go 1.25.7
 
 require (
 	github.com/corazawaf/coraza/v3 v3.3.3
