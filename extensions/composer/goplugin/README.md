@@ -51,8 +51,24 @@ The plugin is configured via the `GoPlugin` protobuf message:
 }
 ```
 
+## URL Schemes
+
+The loader supports the following URL schemes for plugin locations:
+
+- `file://` — Load from a local file path (e.g. `file:///path/to/plugin.so`)
+- `oci://` — Fetch from an OCI registry at runtime (e.g. `oci://ghcr.io/tetratelabs/built-on-envoy/extension-my-plugin:v1.0.0`)
+
+`boe gen-config` generates `oci://` URLs for remote composer (Go plugin) extensions, allowing
+Envoy to fetch the plugin binary directly from the OCI registry at runtime. `boe run` uses
+`file://` URLs pointing to locally cached binaries.
+
+The following environment variables configure OCI plugin fetching at runtime:
+
+- `GOPLUGIN_CACHE_DIR` — Directory to cache downloaded plugin binaries
+- `GOPLUGIN_PULL_SECRET` — Credentials for authenticating to the OCI registry
+- `GOPLUGIN_INSECURE` — Set to `true` to allow insecure (HTTP) registry connections
+
 ## Limitations
 
-- Only `file://` URLs are currently supported for plugin locations
 - Plugins must be compiled for the same OS/architecture as the host
 - All shared dependencies must have exact version matches

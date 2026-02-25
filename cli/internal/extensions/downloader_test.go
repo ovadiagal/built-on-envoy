@@ -162,8 +162,9 @@ func TestDownloadExtension(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := &Downloader{
-				Logger: internaltesting.NewTLogger(t),
-				Dirs:   dirs,
+				Logger:   internaltesting.NewTLogger(t),
+				Registry: "ghcr.io/test",
+				Dirs:     dirs,
 				newClient: func(_ *slog.Logger, _, _, _ string, _ bool) (oci.RepositoryClient, error) {
 					if tt.clientErr != nil {
 						return nil, tt.clientErr

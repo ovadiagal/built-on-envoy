@@ -9,6 +9,10 @@ embedding in existing configs).
 You can enable multiple extensions using the `--extension` flag, and also load extensions
 from local directories using `--local` for development and testing purposes.
 
+Remote composer (Go plugin) extensions use `oci://` URLs in the generated configuration,
+allowing Envoy to fetch the plugin binary directly from the OCI registry at runtime.
+Local extensions use `file://` URLs pointing to the locally cached binaries.
+
 ## Examples
 
 Generate a complete Envoy configuration with the `example-lua` extension:
