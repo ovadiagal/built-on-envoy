@@ -10,20 +10,6 @@
 [![Slack](https://img.shields.io/badge/Slack-Tetrate%20Community-purple)](https://tetrate-community.slack.com/archives/C0AG8GLT41E)
 
 
-> [!Note]
-> Site password: https://linkly.link/2cgfR
->
-> For **early access to Built On Envoy**, you'll have to configure the following
-> environment variables, and to a `docker login` as follows because the GitHub repository is still private:
-> ```
-> export BOE_REGISTRY_USERNAME=<your GitHub user>
-> export BOE_REGISTRY_PASSWORD=<GitHub Personal Access Token>
->
-> echo $BOE_REGISTRY_PASSWORD | docker login ghcr.io -u $BOE_REGISTRY_USERNAME --password-stdin
-> ```
-> The GitHub PAT needs to have the `read:packages` scope. You can find more information on how to create your PAT
-> [here](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens?versionId=free-pro-team%40latest&productId=apps&restPage=oauth-apps%2Cbuilding-oauth-apps%2Cscopes-for-oauth-apps#creating-a-personal-access-token-classic).
-
 A community-driven marketplace for Envoy Proxy extensions. Discover, run, and build custom filters with zero friction.
 
 ## Project Overview
@@ -49,12 +35,6 @@ cd built-on-envoy/cli
 make
 ```
 
-### List Available Extensions
-
-```bash
-boe list
-```
-
 ### Run an Extension
 
 ```bash
@@ -65,11 +45,18 @@ boe run --extension example-go
 boe run --local ./my-extension
 ```
 
+For more examples, take a look at the [extension catalog](https://builtonenvoy.io/extensions/) and the
+[run command](https://builtonenvoy.io/docs/cli/run/).
+
+
 ### Generate Envoy Configuration
 
 ```bash
 boe gen-config --extension example-go > envoy.yaml
 ```
+
+Read more about [exporting configuration and extensions](https://builtonenvoy.io/docs/custom-envoy-config/) and the
+[gen-config command](https://builtonenvoy.io/docs/cli/gen-config/).
 
 ## Contributing Extensions
 
@@ -77,9 +64,10 @@ boe gen-config --extension example-go > envoy.yaml
 2. Create a new directory under `extensions/` with your extension name.
 3. Add a `manifest.yaml` file with the required metadata.
 4. Add your extension code.
-5. Open a pull request!
+5. Add tests.
+6. Open a pull request!
 
-See the [Extension Guide](./extensions/) for more details.
+See the [Contributing Guidelines](./CONTRIBUTING.md) and the [Project Documentation](https://builtonenvoy.io/docs) for more details.
 
 ## License
 
