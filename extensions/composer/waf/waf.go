@@ -15,6 +15,7 @@ import (
 	ctypes "github.com/corazawaf/coraza/v3/types"
 	"github.com/envoyproxy/envoy/source/extensions/dynamic_modules/sdk/go/shared"
 
+	"github.com/tetratelabs/built-on-envoy/extensions/composer/pkg"
 	waf "github.com/tetratelabs/built-on-envoy/extensions/composer/waf/coraza"
 	"github.com/tetratelabs/built-on-envoy/extensions/composer/waf/logger"
 )
@@ -32,12 +33,27 @@ type wafPluginFactory struct {
 	metrics *metrics
 }
 
+type perRouteWafPluginConfig struct {
+	config coraza.WAF
+	mode   waf.WAFMode
+}
+
 func (f *wafPluginFactory) Create(handle shared.HttpFilterHandle) shared.HttpFilter {
+	config := f.config
+	mode := f.mode
+
+	// Check for per-route config and override if present.
+	perRouteWafPluginConfig := pkg.GetMostSpecificConfig[*perRouteWafPluginConfig](handle)
+	if perRouteWafPluginConfig != nil {
+		config = perRouteWafPluginConfig.config
+		mode = perRouteWafPluginConfig.mode
+	}
+
 	return &wafPlugin{
 		logger:            logger.GetLogger(),
 		handle:            handle,
-		config:            f.config,
-		mode:              f.mode,
+		config:            config,
+		mode:              mode,
 		metrics:           f.metrics,
 		metadataNamespace: defaultMetadataNamespace,
 	}
@@ -59,6 +75,17 @@ func (f *wafPluginConfigFactory) Create(
 		config:  wafConfig,
 		mode:    mode,
 		metrics: newMetrics(handle),
+	}, nil
+}
+
+func (f *wafPluginConfigFactory) CreatePerRoute(unparsedConfig []byte) (any, error) {
+	wafConfig, mode, err := waf.NewWAFConfigFromBytes(unparsedConfig, logger.GetLogger())
+	if err != nil {
+		return nil, err
+	}
+	return &perRouteWafPluginConfig{
+		config: wafConfig,
+		mode:   mode,
 	}, nil
 }
 
