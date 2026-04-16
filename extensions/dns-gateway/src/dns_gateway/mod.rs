@@ -14,9 +14,9 @@ mod config;
 mod virtual_ip_cache;
 
 use envoy_proxy_dynamic_modules_rust_sdk::*;
-use hickory_config::op::{Message, MessageType, ResponseCode};
-use hickory_config::rr::{Name, RData, Record, RecordType};
-use hickory_config::serialize::binary::{BinDecodable, BinDecoder};
+use hickory_proto::op::{Message, MessageType, ResponseCode};
+use hickory_proto::rr::{Name, RData, Record, RecordType};
+use hickory_proto::serialize::binary::{BinDecodable, BinDecoder};
 use std::net::Ipv4Addr;
 use std::sync::Arc;
 use virtual_ip_cache::get_cache;
