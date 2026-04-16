@@ -11,16 +11,8 @@ dashmap = "6.1.0"
 envoy-proxy-dynamic-modules-rust-sdk = { git = "https://github.com/envoyproxy/envoy", rev = "5ef4e4cea57f63e7e2970b9c1ad696278db927d6" }
 hickory-proto = "0.25.2"
 ipnet = "2"
-parking_lot = "0.12.5"
-pbjson = "0.9"
-prost = "0.14"
-serde = "1.0"
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-
-[build-dependencies]
-pbjson-build = "0.9"
-prost-build = "0.14"
-protoc-bin-vendored = "3"
 
 [lib]
 name = "dns_gateway"
