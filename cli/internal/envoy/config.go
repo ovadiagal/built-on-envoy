@@ -278,13 +278,12 @@ func buildFullConfig(adminPort, listenerPort uint32, testUpstreamClusterName, te
 		return nil, fmt.Errorf("failed to marshal HTTP connection manager to Any: %w", err)
 	}
 
-	hcmFilter := &listenerv3.Filter{
+	networkFilters = append(networkFilters, &listenerv3.Filter{
 		Name: "envoy.filters.network.http_connection_manager",
 		ConfigType: &listenerv3.Filter_TypedConfig{
 			TypedConfig: hcmAny,
 		},
-	}
-	filters := append(networkFilters, hcmFilter)
+	})
 
 	listener := &listenerv3.Listener{
 		Name: "main",
@@ -300,7 +299,7 @@ func buildFullConfig(adminPort, listenerPort uint32, testUpstreamClusterName, te
 		},
 		FilterChains: []*listenerv3.FilterChain{
 			{
-				Filters: filters,
+				Filters: networkFilters,
 			},
 		},
 	}
