@@ -10,13 +10,13 @@
 //! 2. DNS query parsing and response.
 
 pub mod cache_lookup;
-mod proto;
+mod config;
 mod virtual_ip_cache;
 
 use envoy_proxy_dynamic_modules_rust_sdk::*;
-use hickory_proto::op::{Message, MessageType, ResponseCode};
-use hickory_proto::rr::{Name, RData, Record, RecordType};
-use hickory_proto::serialize::binary::{BinDecodable, BinDecoder};
+use hickory_config::op::{Message, MessageType, ResponseCode};
+use hickory_config::rr::{Name, RData, Record, RecordType};
+use hickory_config::serialize::binary::{BinDecodable, BinDecoder};
 use std::net::Ipv4Addr;
 use std::sync::Arc;
 use virtual_ip_cache::get_cache;
@@ -41,7 +41,7 @@ fn matches_domain(pattern: &str, domain: &str) -> bool {
 ///
 /// This configuration is shared across all UDP listener filter instances.
 pub struct DnsGatewayFilterConfig {
-    config: Arc<proto::DnsGateway>,
+    config: Arc<config::DnsGateway>,
 }
 
 impl DnsGatewayFilterConfig {
@@ -50,7 +50,7 @@ impl DnsGatewayFilterConfig {
     /// The config arrives as a JSON-serialized google.protobuf.Struct
     /// wrapped in an Any: `{"@type":"...Struct", "value":{"domains":[...]}}`.
     pub fn new(config: &[u8]) -> Option<Self> {
-        let gateway_config: proto::DnsGateway = std::str::from_utf8(config)
+        let gateway_config: config::DnsGateway = std::str::from_utf8(config)
             .map_err(|e| eprintln!("Invalid UTF-8: {e}"))
             .and_then(|s| {
                 serde_json::from_str::<serde_json::Value>(s)
@@ -106,7 +106,7 @@ impl<ELF: EnvoyUdpListenerFilter> UdpListenerFilterConfig<ELF> for DnsGatewayFil
 ///
 /// Intercepts DNS queries and returns virtual IPs for domains matching configured matchers.
 struct DnsGatewayFilter {
-    config: Arc<proto::DnsGateway>,
+    config: Arc<config::DnsGateway>,
 }
 
 impl<ELF: EnvoyUdpListenerFilter> UdpListenerFilter<ELF> for DnsGatewayFilter {
