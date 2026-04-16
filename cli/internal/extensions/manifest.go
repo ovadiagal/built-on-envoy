@@ -75,7 +75,7 @@ type (
 	// Type represents the type of an Envoy extension.
 	Type string
 
-	// FilterType represents the Envoy filter level an extension operates at.
+	// FilterType represents which Envoy filter chain an extension plugs into (i.e. HTTP, network, UDP listener).
 	FilterType string
 
 	// Lua configuration for manifests that define Lua extensions
