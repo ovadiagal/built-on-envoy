@@ -1,21 +1,28 @@
 [package]
-name = "ip-restriction"
-version = "0.2.0"
+name = "dns-gateway"
+version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/tetratelabs/built-on-envoy"
 
 [dependencies]
+dashmap = "6.1.0"
 # The SDK version must match the Envoy version due to the strict compatibility requirements.
 envoy-proxy-dynamic-modules-rust-sdk = { git = "https://github.com/envoyproxy/envoy", rev = "5ef4e4cea57f63e7e2970b9c1ad696278db927d6" }
+hickory-proto = "0.25.2"
 ipnet = "2"
-serde = { version = "1.0", features = ["derive"] }
+parking_lot = "0.12.5"
+pbjson = "0.9"
+prost = "0.14"
+serde = "1.0"
 serde_json = "1.0"
 
-[dev-dependencies]
-jsonschema = "0.28"
+[build-dependencies]
+pbjson-build = "0.9"
+prost-build = "0.14"
+protoc-bin-vendored = "3"
 
 [lib]
-name = "ip_restriction"
+name = "dns_gateway"
 path = "src/lib.rs"
 crate-type = ["cdylib"]

@@ -1,0 +1,27 @@
+// Copyright Built On Envoy
+// SPDX-License-Identifier: Apache-2.0
+// The full text of the Apache license is available in the LICENSE file at
+// the root of the repo.
+
+syntax = "proto3";
+
+package dns_gateway;
+
+message DnsGateway {
+  // Each entry defines a domain pattern, its CIDR allocation range, and associated metadata.
+  repeated DomainMatcher domains = 3;
+}
+
+message DomainMatcher {
+  // Exact domain ("example.com") or wildcard pattern ("*.example.com").
+  string domain = 1;
+
+  // String key-value pairs exposed in Envoy filter state as `envoy.dns_gateway.metadata.<key>.`
+  map<string, string> metadata = 2;
+
+  // Base IPv4 address for virtual IP allocation for this domain (e.g. "10.239.0.0").
+  string base_ip = 3;
+
+  // CIDR prefix length (1-32). A /24 gives 256 IPs.
+  uint32 prefix_len = 4;
+}

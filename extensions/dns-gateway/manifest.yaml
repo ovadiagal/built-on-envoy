@@ -3,105 +3,120 @@
 # The full text of the Apache license is available in the LICENSE file at
 # the root of the repo.
 
-name: ip-restriction
-version: 0.2.0
+name: dns-gateway
+version: 0.1.0
 minEnvoyVersion: 1.37.1
 categories:
+  - Network
   - Security
-author: Tetrate
-featured: true
-description: IP-based access control using allowlists or denylists
+author: ovadiagal
+description: Transparent egress routing — intercept DNS and route TCP by domain
 longDescription: |
-  This extension provides IP-based access control for your Envoy proxy using Rust and Envoy's
-  dynamic module framework. It allows you to define allowlists or denylists of IP addresses,
-  restricting access based on the client's source IP.
+  Transparent egress routing for Envoy. Applications make normal DNS lookups and TCP
+  connections — this extension intercepts both so Envoy can control which upstream cluster
+  handles each domain, attach metadata (auth tokens, policy IDs), and enforce routing
+  policy, all without any application changes.
+
+  ## Use cases
+
+  * Route outbound traffic through different upstream proxies based on destination domain
+  * Attach per-domain credentials or policy metadata to proxied connections
+  * Enforce egress access control by selectively intercepting DNS for specific domains
+
+  ## How it works
+
+  The extension is a pair of filters that work together:
+
+  1. **`dns_gateway`** (UDP listener filter) — Intercepts DNS queries for configured domain
+     patterns. For each matched query, allocates a virtual IP from a dedicated CIDR range and
+     responds with an A record. The application receives this virtual IP and connects to it
+     as if it were the real destination. Non-matching queries pass through to upstream resolvers.
+
+  2. **`cache_lookup`** (network filter) — When the application opens a TCP connection to a
+     virtual IP, this filter looks up the original domain and its configured metadata from a
+     shared cache and sets them as Envoy
+     [filter state](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/data_sharing_between_filters#primitives).
+     Downstream filters (e.g. `tcp_proxy`, `set_filter_state`) can then use this to select
+     the upstream cluster, set headers, or apply policy.
 
   ## Features
 
-  * **IP Allowlisting**: Only permit requests from specific IP addresses or CIDR ranges
-  * **IP Denylisting**: Block requests from specific IP addresses or CIDR ranges
-  * **CIDR Range Support**: Match entire subnets (e.g. `192.168.1.0/24`, `10.0.0.0/8`, `2001:db8::/32`)
-  * **IPv4 and IPv6 Support**: Handles both IPv4 and IPv6 addresses and CIDR ranges
+  * **Domain matching**: Exact (`example.com`) and single-level wildcard (`*.aws.com`) patterns
+  * **Per-domain CIDR ranges**: Each domain pattern allocates virtual IPs from its own subnet
+  * **Metadata propagation**: Arbitrary string key-value pairs flow from config through filter state
+  * **Thread-safe caching**: Concurrent virtual IP allocation with deduplication
 
-  ## How It Works
+  ## Prerequisites
 
-  The filter examines the source IP address of incoming requests and compares it against
-  the configured allow or deny list. Requests that don't match the policy receive a 403
-  Forbidden response.
-
-  ## Configuration
-
-  You must specify exactly one of:
-  - `allow_addresses`: Array of IP addresses or CIDR ranges to allow (all others blocked)
-  - `deny_addresses`: Array of IP addresses or CIDR ranges to deny (all others allowed)
-
-  Each entry can be an exact IPv4/IPv6 address or a CIDR range (e.g. `192.168.1.0/24`, `10.0.0.0/8`).
+  Requires iptables/nftables rules to redirect application traffic to Envoy:
+  - **DNS**: UDP port 53 redirected to Envoy's DNS listener
+  - **TCP**: Outbound connections to virtual IP ranges redirected to Envoy's TCP listener
 
   ## Building
 
-  This is a Rust dynamic module that must be compiled to a shared library (`.so` on Linux,
-  `.dylib` on macOS). The compiled module is loaded by Envoy at runtime.
-
   ```bash
-  cargo build --release -p ip-restriction
+  cargo build --release -p dns-gateway
   ```
 
-  The compiled library will be at `target/release/libip_restriction.{so,dylib}`
-
-  ## Note on Dynamic Modules
-
-  This extension requires Envoy to be built with dynamic module support. This feature
-  is experimental and may not be available in all Envoy distributions.
+  The compiled library will be at `target/release/libdns_gateway.{so,dylib}`
 tags:
-  - security
-  - ip-filtering
   - access-control
-  - rust
+  - dns
   - dynamic-module
-  - example
+  - egress
+  - networking
+  - routing
+  - rust
+  - security
+  - transparent-proxy
+  - virtual-ip
 license: Apache-2.0
 type: rust
 examples:
-  - title: Allow Specific IPs
-    description: Only allow requests from localhost and a specific IP
+  - title: Single Wildcard Domain
+    description: Intercept all *.aws.com DNS queries and allocate virtual IPs from a /24 range
     code: |
-      boe run --extension ip-restriction --config '
-        {
-          "allow_addresses": [
-            "127.0.0.1",
-            "::1",
-            "192.168.1.100"
-          ]
-        }'
-  - title: Allow a CIDR Range
-    description: Only allow requests from a private subnet
+      # dns_gateway filter config
+      {
+        "domains": [
+          {
+            "domain": "*.aws.com",
+            "base_ip": "10.239.0.0",
+            "prefix_len": 24,
+            "metadata": {
+              "cluster": "aws_cluster"
+            }
+          }
+        ]
+      }
+  - title: Multiple Domains with Metadata
+    description: Route different domain patterns to different clusters with metadata
     code: |
-      boe run --extension ip-restriction --config '
-        {
-          "allow_addresses": [
-            "127.0.0.1",
-            "10.0.0.0/8",
-            "192.168.0.0/16"
-          ]
-        }'
-  - title: Deny Specific IPs
-    description: Block requests from specific malicious IPs
+      # dns_gateway filter config
+      {
+        "domains": [
+          {
+            "domain": "*.aws.com",
+            "base_ip": "10.239.0.0",
+            "prefix_len": 24,
+            "metadata": {
+              "cluster": "aws_cluster",
+              "proxy_token": "abc123"
+            }
+          },
+          {
+            "domain": "example.com",
+            "base_ip": "10.239.1.0",
+            "prefix_len": 24,
+            "metadata": {
+              "cluster": "example_cluster",
+              "proxy_token": "def456"
+            }
+          }
+        ]
+      }
+  - title: Cache Lookup Filter
+    description: The cache_lookup network filter requires no configuration
     code: |
-      boe run --extension ip-restriction --config '
-        {
-          "deny_addresses": [
-            "192.168.1.50",
-            "10.0.0.100"
-          ]
-        }'
-  - title: IPv6 Support
-    description: Works with both IPv4 and IPv6 addresses
-    code: |
-      boe run --extension ip-restriction --config '
-        {
-          "allow_addresses": [
-            "127.0.0.1",
-            "::1",
-            "2001:db8::1"
-          ]
-        }'
+      # cache_lookup filter config
+      {}
