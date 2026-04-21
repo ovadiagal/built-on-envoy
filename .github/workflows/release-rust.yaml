@@ -45,4 +45,4 @@ jobs:
           IMAGE_NONCE: ${{ inputs.nonce }}
         run: |
           echo "Releasing Rust extension: ${{ inputs.extension }}"
-          make -C extensions push_rust
+          make -C extensions push_rust push_code
