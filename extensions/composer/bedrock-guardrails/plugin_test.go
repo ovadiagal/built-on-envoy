@@ -19,31 +19,6 @@ import (
 	"github.com/tetratelabs/built-on-envoy/extensions/composer/pkg"
 )
 
-// testBodyBuffer is a correct implementation of shared.BodyBuffer for tests,
-// working around a missing return in fake.FakeBodyBuffer.Drain.
-type testBodyBuffer struct {
-	body []byte
-}
-
-func newTestBodyBuffer(data []byte) *testBodyBuffer {
-	b := make([]byte, len(data))
-	copy(b, data)
-	return &testBodyBuffer{body: b}
-}
-
-func (b *testBodyBuffer) GetChunks() []shared.UnsafeEnvoyBuffer {
-	return []shared.UnsafeEnvoyBuffer{pkg.UnsafeBufferFromBytes(b.body)}
-}
-func (b *testBodyBuffer) GetSize() uint64 { return uint64(len(b.body)) }
-func (b *testBodyBuffer) Drain(size uint64) {
-	if size >= uint64(len(b.body)) {
-		b.body = nil
-		return
-	}
-	b.body = b.body[size:]
-}
-func (b *testBodyBuffer) Append(data []byte) { b.body = append(b.body, data...) }
-
 // newPluginHandleWithoutPerRouteConfig creates a mock HttpFilterHandle with default expectations including
 // GetMostSpecificConfig returning nil (no per-route config).
 func newPluginHandleWithoutPerRouteConfig(ctrl *gomock.Controller) *mocks.MockHttpFilterHandle {
@@ -439,7 +414,7 @@ func TestOnRequestBody_NotEndStream(t *testing.T) {
 	}
 
 	// endStream=false should return StopAndBuffer immediately
-	result := filter.OnRequestBody(newTestBodyBuffer([]byte("some data")), false)
+	result := filter.OnRequestBody(fake.NewFakeBodyBuffer([]byte("some data")), false)
 	require.Equal(t, shared.BodyStatusStopAndBuffer, result)
 }
 
@@ -450,9 +425,10 @@ func TestOnRequestBody_EmptyBody(t *testing.T) {
 	mockHandle.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	// ReadWholeRequestBody calls BufferedRequestBody and ReceivedRequestBody
-	emptyBuffer := newTestBodyBuffer([]byte{})
+	emptyBuffer := fake.NewFakeBodyBuffer([]byte{})
 	mockHandle.EXPECT().BufferedRequestBody().Return(emptyBuffer).AnyTimes()
 	mockHandle.EXPECT().ReceivedRequestBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 
 	filter := &bedrockGuardrailsHTTPFilter{
 		handle: mockHandle,
@@ -461,7 +437,7 @@ func TestOnRequestBody_EmptyBody(t *testing.T) {
 		},
 	}
 
-	result := filter.OnRequestBody(newTestBodyBuffer([]byte{}), true)
+	result := filter.OnRequestBody(fake.NewFakeBodyBuffer([]byte{}), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
@@ -472,9 +448,10 @@ func TestOnRequestBody_NoGuardrailsConfigured(t *testing.T) {
 	mockHandle.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	bodyBytes := []byte(`{"messages":[{"role":"user","content":"hello"}],"model":"gpt-4"}`)
-	fakeBuffer := newTestBodyBuffer(bodyBytes)
+	fakeBuffer := fake.NewFakeBodyBuffer(bodyBytes)
 	mockHandle.EXPECT().BufferedRequestBody().Return(fakeBuffer).AnyTimes()
 	mockHandle.EXPECT().ReceivedRequestBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 
 	filter := &bedrockGuardrailsHTTPFilter{
 		handle: mockHandle,
@@ -483,7 +460,7 @@ func TestOnRequestBody_NoGuardrailsConfigured(t *testing.T) {
 		},
 	}
 
-	result := filter.OnRequestBody(newTestBodyBuffer(bodyBytes), true)
+	result := filter.OnRequestBody(fake.NewFakeBodyBuffer(bodyBytes), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
@@ -494,9 +471,10 @@ func TestOnRequestBody_ValidBody_CalloutSuccess(t *testing.T) {
 	mockHandle.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	bodyBytes := []byte(`{"messages":[{"role":"user","content":"hello"}],"model":"gpt-4"}`)
-	fakeBuffer := newTestBodyBuffer(bodyBytes)
+	fakeBuffer := fake.NewFakeBodyBuffer(bodyBytes)
 	mockHandle.EXPECT().BufferedRequestBody().Return(fakeBuffer).AnyTimes()
 	mockHandle.EXPECT().ReceivedRequestBody().Return(fakeBuffer).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 
 	// RequestHeaders().Remove is called to remove content-length
 	fakeHeaders := fake.NewFakeHeaderMap(map[string][]string{"content-length": {"42"}})
@@ -524,7 +502,7 @@ func TestOnRequestBody_ValidBody_CalloutSuccess(t *testing.T) {
 		config: cfg,
 	}
 
-	result := filter.OnRequestBody(newTestBodyBuffer(bodyBytes), true)
+	result := filter.OnRequestBody(fake.NewFakeBodyBuffer(bodyBytes), true)
 	require.Equal(t, shared.BodyStatusStopAndBuffer, result)
 
 	// content-length header should have been removed
@@ -539,9 +517,10 @@ func TestOnRequestBody_InvalidBody_GetCalloutHeadersError(t *testing.T) {
 
 	// Body is invalid JSON — getCalloutHeaders will fail
 	invalidBody := []byte(`{invalid json}`)
-	fakeBuffer := newTestBodyBuffer(invalidBody)
+	fakeBuffer := fake.NewFakeBodyBuffer(invalidBody)
 	mockHandle.EXPECT().BufferedRequestBody().Return(fakeBuffer).AnyTimes()
 	mockHandle.EXPECT().ReceivedRequestBody().Return(fakeBuffer).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 
 	fakeHeaders := fake.NewFakeHeaderMap(map[string][]string{})
 	mockHandle.EXPECT().RequestHeaders().Return(fakeHeaders).AnyTimes()
@@ -562,7 +541,7 @@ func TestOnRequestBody_InvalidBody_GetCalloutHeadersError(t *testing.T) {
 		config: cfg,
 	}
 
-	result := filter.OnRequestBody(newTestBodyBuffer(invalidBody), true)
+	result := filter.OnRequestBody(fake.NewFakeBodyBuffer(invalidBody), true)
 	require.Equal(t, shared.BodyStatusStopAndBuffer, result)
 }
 
@@ -573,9 +552,10 @@ func TestOnRequestBody_CalloutInitFailure(t *testing.T) {
 	mockHandle.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	bodyBytes := []byte(`{"messages":[{"role":"user","content":"hello"}],"model":"gpt-4"}`)
-	fakeBuffer := newTestBodyBuffer(bodyBytes)
+	fakeBuffer := fake.NewFakeBodyBuffer(bodyBytes)
 	mockHandle.EXPECT().BufferedRequestBody().Return(fakeBuffer).AnyTimes()
 	mockHandle.EXPECT().ReceivedRequestBody().Return(fakeBuffer).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 
 	fakeHeaders := fake.NewFakeHeaderMap(map[string][]string{})
 	mockHandle.EXPECT().RequestHeaders().Return(fakeHeaders).AnyTimes()
@@ -605,7 +585,7 @@ func TestOnRequestBody_CalloutInitFailure(t *testing.T) {
 		config: cfg,
 	}
 
-	result := filter.OnRequestBody(newTestBodyBuffer(bodyBytes), true)
+	result := filter.OnRequestBody(fake.NewFakeBodyBuffer(bodyBytes), true)
 	require.Equal(t, shared.BodyStatusStopAndBuffer, result)
 }
 
@@ -616,9 +596,10 @@ func TestOnRequestBody_MultipleGuardrails_FirstTriggered(t *testing.T) {
 	mockHandle.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	bodyBytes := []byte(`{"messages":[{"role":"user","content":"hello"}],"model":"gpt-4"}`)
-	fakeBuffer := newTestBodyBuffer(bodyBytes)
+	fakeBuffer := fake.NewFakeBodyBuffer(bodyBytes)
 	mockHandle.EXPECT().BufferedRequestBody().Return(fakeBuffer).AnyTimes()
 	mockHandle.EXPECT().ReceivedRequestBody().Return(fakeBuffer).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 
 	fakeHeaders := fake.NewFakeHeaderMap(map[string][]string{})
 	mockHandle.EXPECT().RequestHeaders().Return(fakeHeaders).AnyTimes()
@@ -650,7 +631,7 @@ func TestOnRequestBody_MultipleGuardrails_FirstTriggered(t *testing.T) {
 		config: cfg,
 	}
 
-	result := filter.OnRequestBody(newTestBodyBuffer(bodyBytes), true)
+	result := filter.OnRequestBody(fake.NewFakeBodyBuffer(bodyBytes), true)
 	require.Equal(t, shared.BodyStatusStopAndBuffer, result)
 
 	// Only the first guardrail should have been called

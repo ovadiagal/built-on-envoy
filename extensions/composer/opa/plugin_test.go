@@ -1267,6 +1267,7 @@ allow if { input.body.user == "admin" }
 	body := []byte(`{"user": "admin"}`)
 	fakeBody := fake.NewFakeBodyBuffer(body)
 	mockHandle.EXPECT().RequestHeaders().Return(headers).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 	mockHandle.EXPECT().BufferedRequestBody().Return(fakeBody)
 	mockHandle.EXPECT().ReceivedRequestBody().Return(fakeBody)
 
@@ -1297,6 +1298,7 @@ allow if { input.body.user == "admin" }
 	body := []byte(`{"user": "guest"}`)
 	fakeBody := fake.NewFakeBodyBuffer(body)
 	mockHandle.EXPECT().RequestHeaders().Return(headers).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 	mockHandle.EXPECT().BufferedRequestBody().Return(fakeBody)
 	mockHandle.EXPECT().ReceivedRequestBody().Return(fakeBody)
 	mockHandle.EXPECT().SendLocalResponse(uint32(403), gomock.Any(), []byte("Forbidden"), "opa_denied")
@@ -1386,6 +1388,7 @@ allow if { input.body.user == "admin" }
 	// Full body available when trailers arrive.
 	fullBody := fake.NewFakeBodyBuffer([]byte(`{"user": "admin"}`))
 	mockHandle.EXPECT().RequestHeaders().Return(headers).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 	mockHandle.EXPECT().BufferedRequestBody().Return(fullBody)
 	mockHandle.EXPECT().ReceivedRequestBody().Return(fullBody)
 

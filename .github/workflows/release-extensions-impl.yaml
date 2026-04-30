@@ -50,7 +50,7 @@ jobs:
           EXTENSION_PATH: ${{ matrix.extension.path }}
         run: |
           echo "Releasing Rust extension: ${{ matrix.extension.name }}"
-          make -C extensions push_rust
+          make -C extensions push_rust push_code
 
       - name: Release Lua Extension
         if: matrix.extension.type == 'lua'
@@ -59,6 +59,14 @@ jobs:
         run: |
           echo "Releasing Lua extension: ${{ matrix.extension.name }}"
           make -C extensions push_lua
+
+      - name: Release ExtProc Extension
+        if: matrix.extension.type == 'ext_proc'
+        env:
+          EXTENSION_PATH: ${{ matrix.extension.path }}
+        run: |
+          echo "Releasing ExtProc extension: ${{ matrix.extension.name }}"
+          make -C extensions push_extproc push_code
 
       - name: Release Composer
         if: matrix.extension.name == 'composer'

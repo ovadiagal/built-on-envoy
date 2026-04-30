@@ -66,8 +66,10 @@ func TestStats_RequestBody_Success_RecordsTotal(t *testing.T) {
 
 	body := []byte(`{"model":"gpt-4o","stream":false}`)
 	handle := mocks.NewMockHttpFilterHandle(ctrl)
-	handle.EXPECT().BufferedRequestBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
-	handle.EXPECT().ReceivedRequestBody().Return(nil).AnyTimes()
+
+	handle.EXPECT().BufferedRequestBody().Return(fake.NewFakeBodyBuffer(body))
+	handle.EXPECT().ReceivedRequestBody().Return(nil)
+	handle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 	handle.EXPECT().SetMetadata(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	handle.EXPECT().IncrementCounterValue(idRequestTotal, uint64(1), "openai", "gpt-4o").
 		Return(shared.MetricsSuccess).Times(1)
@@ -91,8 +93,10 @@ func TestStats_RequestBody_ParseError_RecordsErrorAndTotal(t *testing.T) {
 
 	body := []byte(`{bad json}`)
 	handle := mocks.NewMockHttpFilterHandle(ctrl)
-	handle.EXPECT().BufferedRequestBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
-	handle.EXPECT().ReceivedRequestBody().Return(nil).AnyTimes()
+
+	handle.EXPECT().BufferedRequestBody().Return(fake.NewFakeBodyBuffer(body))
+	handle.EXPECT().ReceivedRequestBody().Return(nil)
+	handle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 	handle.EXPECT().Log(shared.LogLevelDebug, gomock.Any(), gomock.Any()).AnyTimes()
 	// requestSentAt is zero when the error occurs → both error and total are incremented.
 	handle.EXPECT().IncrementCounterValue(idRequestError, uint64(1), "openai", "").
@@ -115,8 +119,10 @@ func TestStats_NonStreamingResponse_RecordsTokenCounters(t *testing.T) {
 
 	body := []byte(`{"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}`)
 	handle := mocks.NewMockHttpFilterHandle(ctrl)
-	handle.EXPECT().BufferedResponseBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
-	handle.EXPECT().ReceivedResponseBody().Return(nil).AnyTimes()
+
+	handle.EXPECT().BufferedResponseBody().Return(fake.NewFakeBodyBuffer(body))
+	handle.EXPECT().ReceivedResponseBody().Return(nil)
+	handle.EXPECT().ReceivedBufferedResponseBody().Return(true).Times(1)
 	handle.EXPECT().SetMetadata(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	handle.EXPECT().IncrementCounterValue(idInputTokens, uint64(10), "openai", "gpt-4o").Return(shared.MetricsSuccess).Times(1)
 	handle.EXPECT().IncrementCounterValue(idOutputTokens, uint64(20), "openai", "gpt-4o").Return(shared.MetricsSuccess).Times(1)

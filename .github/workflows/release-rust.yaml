@@ -28,9 +28,7 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v6
-      
       - uses: docker/setup-buildx-action@v4
-      
       - uses: docker/setup-qemu-action@v4
         with:
           platforms: amd64,arm64
@@ -47,4 +45,4 @@ jobs:
           IMAGE_NONCE: ${{ inputs.nonce }}
         run: |
           echo "Releasing Rust extension: ${{ inputs.extension }}"
-          make -C extensions push_rust
+          make -C extensions push_rust push_code

@@ -51,7 +51,7 @@ in the `Dockerfile`. The following example creates a custom Envoy image with all
 FROM ghcr.io/tetratelabs/built-on-envoy/composer:0.5.0-dev AS all_go_extensions
 FROM ghcr.io/tetratelabs/built-on-envoy/extension-ip-restriction:0.2.0 AS ip_restriction
 
-FROM envoyproxy/envoy:v1.37.1
+FROM envoyproxy/envoy:v1.38.0
 
 # Copy the extension files
 COPY --from=all_go_extensions /libcomposer.so /var/boe/extensions/
@@ -178,7 +178,7 @@ The following example creates a custom Envoy image with all the Go extensions an
 FROM ghcr.io/tetratelabs/built-on-envoy/composer-lite:0.5.0-dev AS go_loader_dym
 FROM ghcr.io/tetratelabs/built-on-envoy/extension-chat-completions-decoder:0.5.0-dev AS chat-completions-decoder
 
-FROM envoyproxy/envoy:v1.37.1
+FROM envoyproxy/envoy:v1.38.0
 
 # Copy the extension files
 COPY --from=go_loader_dym /libcomposer.so /var/boe/dym/

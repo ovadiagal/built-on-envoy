@@ -4,9 +4,9 @@
 # the root of the repo.
 
 name: composer
-version: 0.5.0-dev
-composerVersion: 0.5.0-dev
-minEnvoyVersion: 1.37.1
+version: 0.6.0-dev
+composerVersion: 0.6.0-dev
+minEnvoyVersion: 1.38.0
 categories:
   - Misc
 author: Tetrate

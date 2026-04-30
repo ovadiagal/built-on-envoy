@@ -231,6 +231,7 @@ func TestOnRequestBody_ACS_InvalidSAMLResponse(t *testing.T) {
 
 	// Provide a body with no SAMLResponse field.
 	bufferedBody := fake.NewFakeBodyBuffer([]byte("RelayState=https://sp.example.com/page"))
+	handle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 	handle.EXPECT().BufferedRequestBody().Return(bufferedBody)
 	// Simulate the case where the buffered body is the same as the received body.
 	handle.EXPECT().ReceivedRequestBody().Return(bufferedBody)
@@ -393,6 +394,7 @@ func TestMetrics_AssertionsValidated_Failure(t *testing.T) {
 	// Provide a body with no SAMLResponse field.
 	bufferedBody := fake.NewFakeBodyBuffer([]byte("RelayState="))
 	receivedBody := fake.NewFakeBodyBuffer([]byte("https://sp.example.com/page"))
+	handle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 	handle.EXPECT().BufferedRequestBody().Return(bufferedBody)
 	handle.EXPECT().ReceivedRequestBody().Return(receivedBody)
 
@@ -416,6 +418,7 @@ func TestMetrics_AssertionsValidated_Failure_WithTrailers(t *testing.T) {
 	// Provide a body with no SAMLResponse field.
 	bufferedBody := fake.NewFakeBodyBuffer([]byte("RelayState="))
 	receivedBody := fake.NewFakeBodyBuffer([]byte("https://sp.example.com/page"))
+	handle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 	handle.EXPECT().BufferedRequestBody().Return(bufferedBody)
 	handle.EXPECT().ReceivedRequestBody().Return(receivedBody)
 

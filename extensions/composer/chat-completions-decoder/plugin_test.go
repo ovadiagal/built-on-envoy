@@ -14,43 +14,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
-
-	"github.com/tetratelabs/built-on-envoy/extensions/composer/pkg"
 )
-
-// testBodyBuffer is a test implementation of shared.BodyBuffer.
-type testBodyBuffer struct {
-	body []byte
-}
-
-func newTestBodyBuffer(data []byte) *testBodyBuffer {
-	b := make([]byte, len(data))
-	copy(b, data)
-	return &testBodyBuffer{body: b}
-}
-
-func (b *testBodyBuffer) GetChunks() []shared.UnsafeEnvoyBuffer {
-	return []shared.UnsafeEnvoyBuffer{pkg.UnsafeBufferFromBytes(b.body)}
-}
-func (b *testBodyBuffer) GetSize() uint64 { return uint64(len(b.body)) }
-func (b *testBodyBuffer) Drain(size uint64) {
-	if size >= uint64(len(b.body)) {
-		b.body = nil
-		return
-	}
-	b.body = b.body[size:]
-}
-func (b *testBodyBuffer) Append(data []byte) { b.body = append(b.body, data...) }
 
 // defaultCfg returns a config with the default namespace set (simulates what Create does).
 func defaultCfg() *chatCompletionsDecoderConfig {
 	return &chatCompletionsDecoderConfig{MetadataNamespace: defaultMetadataNamespace}
 }
 
+func newMockHTTPFilterHandle(ctrl *gomock.Controller) *mocks.MockHttpFilterHandle {
+	return mocks.NewMockHttpFilterHandle(ctrl)
+}
+
 // newPluginHandleWithoutPerRouteConfig creates a mock HttpFilterHandle with default expectations including
 // GetMostSpecificConfig returning nil (no per-route config).
 func newPluginHandleWithoutPerRouteConfig(ctrl *gomock.Controller) *mocks.MockHttpFilterHandle {
-	pluginHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	pluginHandle := newMockHTTPFilterHandle(ctrl)
 	pluginHandle.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	pluginHandle.EXPECT().GetMostSpecificConfig().Return(nil).AnyTimes()
 	return pluginHandle
@@ -59,7 +37,7 @@ func newPluginHandleWithoutPerRouteConfig(ctrl *gomock.Controller) *mocks.MockHt
 // newPluginHandleWithPerRouteConfig creates a mock HttpFilterHandle that returns
 // the given per-route config from GetMostSpecificConfig.
 func newPluginHandleWithPerRouteConfig(ctrl *gomock.Controller, perRouteConfig any) *mocks.MockHttpFilterHandle {
-	pluginHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	pluginHandle := newMockHTTPFilterHandle(ctrl)
 	pluginHandle.EXPECT().Log(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	pluginHandle.EXPECT().GetMostSpecificConfig().Return(perRouteConfig).AnyTimes()
 	return pluginHandle
@@ -221,7 +199,7 @@ func TestWellKnownHttpFilterConfigFactories(t *testing.T) {
 func TestOnRequestHeaders_EndOfStream(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
 	result := filter.OnRequestHeaders(fake.NewFakeHeaderMap(map[string][]string{}), true)
@@ -231,7 +209,7 @@ func TestOnRequestHeaders_EndOfStream(t *testing.T) {
 func TestOnRequestHeaders_NotEndOfStream(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
 	result := filter.OnRequestHeaders(fake.NewFakeHeaderMap(map[string][]string{}), false)
@@ -243,38 +221,40 @@ func TestOnRequestHeaders_NotEndOfStream(t *testing.T) {
 func TestOnRequestBody_NotEndOfStream(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
-	result := filter.OnRequestBody(newTestBodyBuffer([]byte("data")), false)
+	result := filter.OnRequestBody(fake.NewFakeBodyBuffer([]byte("data")), false)
 	require.Equal(t, shared.BodyStatusStopAndBuffer, result)
 }
 
 func TestOnRequestBody_EmptyBody(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
-	mockHandle.EXPECT().BufferedRequestBody().Return(newTestBodyBuffer([]byte{})).AnyTimes()
+	mockHandle.EXPECT().BufferedRequestBody().Return(fake.NewFakeBodyBuffer([]byte{})).AnyTimes()
 	mockHandle.EXPECT().ReceivedRequestBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
-	result := filter.OnRequestBody(newTestBodyBuffer([]byte{}), true)
+	result := filter.OnRequestBody(fake.NewFakeBodyBuffer([]byte{}), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnRequestBody_InvalidJSON(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	body := []byte(`{invalid json}`)
-	mockHandle.EXPECT().BufferedRequestBody().Return(newTestBodyBuffer(body)).AnyTimes()
+	mockHandle.EXPECT().BufferedRequestBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
 	mockHandle.EXPECT().ReceivedRequestBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 	mockHandle.EXPECT().Log(shared.LogLevelDebug, gomock.Any(), gomock.Any()).Times(1)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
-	result := filter.OnRequestBody(newTestBodyBuffer(body), true)
+	result := filter.OnRequestBody(fake.NewFakeBodyBuffer(body), true)
 	// Even with invalid JSON, we continue (graceful degradation)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
@@ -282,7 +262,7 @@ func TestOnRequestBody_InvalidJSON(t *testing.T) {
 func TestOnRequestBody_ValidRequest_SetsMetadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	body := []byte(`{
 		"model": "gpt-4o",
@@ -291,8 +271,9 @@ func TestOnRequestBody_ValidRequest_SetsMetadata(t *testing.T) {
 			{"role": "user", "content": "What is the weather?"}
 		]
 	}`)
-	mockHandle.EXPECT().BufferedRequestBody().Return(newTestBodyBuffer(body)).AnyTimes()
+	mockHandle.EXPECT().BufferedRequestBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
 	mockHandle.EXPECT().ReceivedRequestBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.model_name", "gpt-4o").Times(1)
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.system", "openai").Times(1)
@@ -304,14 +285,14 @@ func TestOnRequestBody_ValidRequest_SetsMetadata(t *testing.T) {
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.tools.count", 0).Times(1)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
-	result := filter.OnRequestBody(newTestBodyBuffer(body), true)
+	result := filter.OnRequestBody(fake.NewFakeBodyBuffer(body), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnRequestBody_WithTools_SetsMetadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	body := []byte(`{
 		"model": "gpt-4o",
@@ -320,8 +301,9 @@ func TestOnRequestBody_WithTools_SetsMetadata(t *testing.T) {
 			{"type": "function", "function": {"name": "my_func", "description": "A function"}}
 		]
 	}`)
-	mockHandle.EXPECT().BufferedRequestBody().Return(newTestBodyBuffer(body)).AnyTimes()
+	mockHandle.EXPECT().BufferedRequestBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
 	mockHandle.EXPECT().ReceivedRequestBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.model_name", "gpt-4o").Times(1)
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.system", "openai").Times(1)
@@ -333,14 +315,14 @@ func TestOnRequestBody_WithTools_SetsMetadata(t *testing.T) {
 		`{"type":"function","function":{"name":"my_func","description":"A function"}}`).Times(1)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
-	result := filter.OnRequestBody(newTestBodyBuffer(body), true)
+	result := filter.OnRequestBody(fake.NewFakeBodyBuffer(body), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnRequestBody_WithToolCalls_SetsMetadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	body := []byte(`{
 		"model": "gpt-4o",
@@ -351,8 +333,9 @@ func TestOnRequestBody_WithToolCalls_SetsMetadata(t *testing.T) {
 			]}
 		]
 	}`)
-	mockHandle.EXPECT().BufferedRequestBody().Return(newTestBodyBuffer(body)).AnyTimes()
+	mockHandle.EXPECT().BufferedRequestBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
 	mockHandle.EXPECT().ReceivedRequestBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.model_name", "gpt-4o").Times(1)
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.system", "openai").Times(1)
@@ -368,21 +351,22 @@ func TestOnRequestBody_WithToolCalls_SetsMetadata(t *testing.T) {
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.tools.count", 0).Times(1)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
-	result := filter.OnRequestBody(newTestBodyBuffer(body), true)
+	result := filter.OnRequestBody(fake.NewFakeBodyBuffer(body), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnRequestBody_CustomNamespace(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	body := []byte(`{
 		"model": "gpt-4o",
 		"messages": [{"role": "user", "content": "Hello"}]
 	}`)
-	mockHandle.EXPECT().BufferedRequestBody().Return(newTestBodyBuffer(body)).AnyTimes()
+	mockHandle.EXPECT().BufferedRequestBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
 	mockHandle.EXPECT().ReceivedRequestBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 
 	mockHandle.EXPECT().SetMetadata("my-namespace", "llm.model_name", "gpt-4o").Times(1)
 	mockHandle.EXPECT().SetMetadata("my-namespace", "llm.system", "openai").Times(1)
@@ -395,7 +379,7 @@ func TestOnRequestBody_CustomNamespace(t *testing.T) {
 		handle: mockHandle,
 		config: &chatCompletionsDecoderConfig{MetadataNamespace: "my-namespace"},
 	}
-	result := filter.OnRequestBody(newTestBodyBuffer(body), true)
+	result := filter.OnRequestBody(fake.NewFakeBodyBuffer(body), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
@@ -404,14 +388,15 @@ func TestOnRequestBody_CustomNamespace(t *testing.T) {
 func TestOnRequestTrailers_SetsMetadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	body := []byte(`{
 		"model": "gpt-4o",
 		"messages": [{"role": "user", "content": "Hello"}]
 	}`)
-	mockHandle.EXPECT().BufferedRequestBody().Return(newTestBodyBuffer(body)).AnyTimes()
+	mockHandle.EXPECT().BufferedRequestBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
 	mockHandle.EXPECT().ReceivedRequestBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedRequestBody().Return(true).Times(1)
 
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.model_name", "gpt-4o").Times(1)
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.system", "openai").Times(1)
@@ -430,7 +415,7 @@ func TestOnRequestTrailers_SetsMetadata(t *testing.T) {
 func TestOnResponseHeaders_EndOfStream(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
 	result := filter.OnResponseHeaders(fake.NewFakeHeaderMap(map[string][]string{}), true)
@@ -440,7 +425,7 @@ func TestOnResponseHeaders_EndOfStream(t *testing.T) {
 func TestOnResponseHeaders_NotEndOfStream(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
 	result := filter.OnResponseHeaders(fake.NewFakeHeaderMap(map[string][]string{}), false)
@@ -451,7 +436,7 @@ func TestOnResponseHeaders_NotEndOfStream(t *testing.T) {
 func TestOnResponseHeaders_SSEContentType(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 	mockHandle.EXPECT().Log(shared.LogLevelDebug, gomock.Any(), gomock.Any()).Times(1)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
@@ -465,7 +450,7 @@ func TestOnResponseHeaders_SSEContentType(t *testing.T) {
 func TestOnResponseHeaders_SSEContentTypeWithCharset(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 	mockHandle.EXPECT().Log(shared.LogLevelDebug, gomock.Any(), gomock.Any()).Times(1)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
@@ -481,56 +466,58 @@ func TestOnResponseHeaders_SSEContentTypeWithCharset(t *testing.T) {
 func TestOnResponseBody_NotEndOfStream_NonStreaming(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
-	result := filter.OnResponseBody(newTestBodyBuffer([]byte("data")), false)
+	result := filter.OnResponseBody(fake.NewFakeBodyBuffer([]byte("data")), false)
 	require.Equal(t, shared.BodyStatusStopAndBuffer, result)
 }
 
 func TestOnResponseBody_NotEndOfStream_Streaming(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
 	filter.sseAcc = newSSEAccumulator(t.Logf)
-	result := filter.OnResponseBody(newTestBodyBuffer([]byte("data: {}\n\n")), false)
+	result := filter.OnResponseBody(fake.NewFakeBodyBuffer([]byte("data: {}\n\n")), false)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnResponseBody_EmptyBody(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
-	mockHandle.EXPECT().BufferedResponseBody().Return(newTestBodyBuffer([]byte{})).AnyTimes()
+	mockHandle.EXPECT().BufferedResponseBody().Return(fake.NewFakeBodyBuffer([]byte{})).AnyTimes()
 	mockHandle.EXPECT().ReceivedResponseBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedResponseBody().Return(true).Times(1)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
-	result := filter.OnResponseBody(newTestBodyBuffer([]byte{}), true)
+	result := filter.OnResponseBody(fake.NewFakeBodyBuffer([]byte{}), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnResponseBody_InvalidJSON(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	body := []byte(`{invalid json}`)
-	mockHandle.EXPECT().BufferedResponseBody().Return(newTestBodyBuffer(body)).AnyTimes()
+	mockHandle.EXPECT().BufferedResponseBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
 	mockHandle.EXPECT().ReceivedResponseBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedResponseBody().Return(true).Times(1)
 	mockHandle.EXPECT().Log(shared.LogLevelDebug, gomock.Any(), gomock.Any()).Times(1)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
-	result := filter.OnResponseBody(newTestBodyBuffer(body), true)
+	result := filter.OnResponseBody(fake.NewFakeBodyBuffer(body), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnResponseBody_ValidResponse_SetsMetadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	body := []byte(`{
 		"choices": [
@@ -546,8 +533,9 @@ func TestOnResponseBody_ValidResponse_SetsMetadata(t *testing.T) {
 			"total_tokens": 30
 		}
 	}`)
-	mockHandle.EXPECT().BufferedResponseBody().Return(newTestBodyBuffer(body)).AnyTimes()
+	mockHandle.EXPECT().BufferedResponseBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
 	mockHandle.EXPECT().ReceivedResponseBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedResponseBody().Return(true).Times(1)
 
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.output_messages.count", 1).Times(1)
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.output_messages.0.message.role", "assistant").Times(1)
@@ -557,22 +545,23 @@ func TestOnResponseBody_ValidResponse_SetsMetadata(t *testing.T) {
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.token_count.total", 30).Times(1)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
-	result := filter.OnResponseBody(newTestBodyBuffer(body), true)
+	result := filter.OnResponseBody(fake.NewFakeBodyBuffer(body), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnResponseBody_NoUsage_SetsMetadataWithoutTokenCounts(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	body := []byte(`{
 		"choices": [
 			{"index": 0, "message": {"role": "assistant", "content": "Hello!"}, "finish_reason": "stop"}
 		]
 	}`)
-	mockHandle.EXPECT().BufferedResponseBody().Return(newTestBodyBuffer(body)).AnyTimes()
+	mockHandle.EXPECT().BufferedResponseBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
 	mockHandle.EXPECT().ReceivedResponseBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedResponseBody().Return(true).Times(1)
 
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.output_messages.count", 1).Times(1)
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.output_messages.0.message.role", "assistant").Times(1)
@@ -580,14 +569,14 @@ func TestOnResponseBody_NoUsage_SetsMetadataWithoutTokenCounts(t *testing.T) {
 	// No token count calls expected when usage is absent
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
-	result := filter.OnResponseBody(newTestBodyBuffer(body), true)
+	result := filter.OnResponseBody(fake.NewFakeBodyBuffer(body), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnResponseBody_WithCompletionTokensDetails(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	body := []byte(`{
 		"choices": [
@@ -600,8 +589,9 @@ func TestOnResponseBody_WithCompletionTokensDetails(t *testing.T) {
 			"completion_tokens_details": {"reasoning_tokens": 40, "audio_tokens": 10}
 		}
 	}`)
-	mockHandle.EXPECT().BufferedResponseBody().Return(newTestBodyBuffer(body)).AnyTimes()
+	mockHandle.EXPECT().BufferedResponseBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
 	mockHandle.EXPECT().ReceivedResponseBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedResponseBody().Return(true).Times(1)
 
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.output_messages.count", 1).Times(1)
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.output_messages.0.message.role", "assistant").Times(1)
@@ -613,14 +603,14 @@ func TestOnResponseBody_WithCompletionTokensDetails(t *testing.T) {
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.token_count.completion_details.audio", 10).Times(1)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
-	result := filter.OnResponseBody(newTestBodyBuffer(body), true)
+	result := filter.OnResponseBody(fake.NewFakeBodyBuffer(body), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnResponseBody_WithOutputToolCalls_SetsMetadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	body := []byte(`{
 		"choices": [
@@ -637,8 +627,9 @@ func TestOnResponseBody_WithOutputToolCalls_SetsMetadata(t *testing.T) {
 			}
 		]
 	}`)
-	mockHandle.EXPECT().BufferedResponseBody().Return(newTestBodyBuffer(body)).AnyTimes()
+	mockHandle.EXPECT().BufferedResponseBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
 	mockHandle.EXPECT().ReceivedResponseBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedResponseBody().Return(true).Times(1)
 
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.output_messages.count", 1).Times(1)
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.output_messages.0.message.role", "assistant").Times(1)
@@ -649,22 +640,23 @@ func TestOnResponseBody_WithOutputToolCalls_SetsMetadata(t *testing.T) {
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.output_messages.0.message.tool_calls.0.tool_call.function.arguments", `{"loc":"NYC"}`).Times(1)
 
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
-	result := filter.OnResponseBody(newTestBodyBuffer(body), true)
+	result := filter.OnResponseBody(fake.NewFakeBodyBuffer(body), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnResponseBody_CustomNamespace(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	body := []byte(`{
 		"choices": [
 			{"index": 0, "message": {"role": "assistant", "content": "Hi"}, "finish_reason": "stop"}
 		]
 	}`)
-	mockHandle.EXPECT().BufferedResponseBody().Return(newTestBodyBuffer(body)).AnyTimes()
+	mockHandle.EXPECT().BufferedResponseBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
 	mockHandle.EXPECT().ReceivedResponseBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedResponseBody().Return(true).Times(1)
 
 	mockHandle.EXPECT().SetMetadata("my-ns", "llm.output_messages.count", 1).Times(1)
 	mockHandle.EXPECT().SetMetadata("my-ns", "llm.output_messages.0.message.role", "assistant").Times(1)
@@ -674,7 +666,7 @@ func TestOnResponseBody_CustomNamespace(t *testing.T) {
 		handle: mockHandle,
 		config: &chatCompletionsDecoderConfig{MetadataNamespace: "my-ns"},
 	}
-	result := filter.OnResponseBody(newTestBodyBuffer(body), true)
+	result := filter.OnResponseBody(fake.NewFakeBodyBuffer(body), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
@@ -683,7 +675,7 @@ func TestOnResponseBody_CustomNamespace(t *testing.T) {
 func TestOnResponseTrailers_SetsMetadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 
 	body := []byte(`{
 		"choices": [
@@ -691,8 +683,9 @@ func TestOnResponseTrailers_SetsMetadata(t *testing.T) {
 		],
 		"usage": {"prompt_tokens": 5, "completion_tokens": 3, "total_tokens": 8}
 	}`)
-	mockHandle.EXPECT().BufferedResponseBody().Return(newTestBodyBuffer(body)).AnyTimes()
+	mockHandle.EXPECT().BufferedResponseBody().Return(fake.NewFakeBodyBuffer(body)).AnyTimes()
 	mockHandle.EXPECT().ReceivedResponseBody().Return(nil).AnyTimes()
+	mockHandle.EXPECT().ReceivedBufferedResponseBody().Return(true).Times(1)
 
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.output_messages.count", 1).Times(1)
 	mockHandle.EXPECT().SetMetadata("io.builtonenvoy.openai", "llm.output_messages.0.message.role", "assistant").Times(1)
@@ -718,7 +711,7 @@ func sseHeaders() shared.HeaderMap {
 func TestOnResponseBody_StreamingResponse_SetsMetadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 	mockHandle.EXPECT().Log(shared.LogLevelDebug, gomock.Any(), gomock.Any()).Times(1)
 
 	chunk1 := []byte(
@@ -742,17 +735,17 @@ func TestOnResponseBody_StreamingResponse_SetsMetadata(t *testing.T) {
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
 	filter.OnResponseHeaders(sseHeaders(), false)
 
-	result := filter.OnResponseBody(newTestBodyBuffer(chunk1), false)
+	result := filter.OnResponseBody(fake.NewFakeBodyBuffer(chunk1), false)
 	require.Equal(t, shared.BodyStatusContinue, result)
 
-	result = filter.OnResponseBody(newTestBodyBuffer(chunk2), true)
+	result = filter.OnResponseBody(fake.NewFakeBodyBuffer(chunk2), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnResponseBody_StreamingResponse_SingleChunk(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 	mockHandle.EXPECT().Log(shared.LogLevelDebug, gomock.Any(), gomock.Any()).Times(1)
 
 	body := []byte(
@@ -774,14 +767,14 @@ func TestOnResponseBody_StreamingResponse_SingleChunk(t *testing.T) {
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
 	filter.OnResponseHeaders(sseHeaders(), false)
 
-	result := filter.OnResponseBody(newTestBodyBuffer(body), true)
+	result := filter.OnResponseBody(fake.NewFakeBodyBuffer(body), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnResponseBody_StreamingResponse_NoUsage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 	mockHandle.EXPECT().Log(shared.LogLevelDebug, gomock.Any(), gomock.Any()).Times(1)
 
 	body := []byte(
@@ -797,14 +790,14 @@ func TestOnResponseBody_StreamingResponse_NoUsage(t *testing.T) {
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
 	filter.OnResponseHeaders(sseHeaders(), false)
 
-	result := filter.OnResponseBody(newTestBodyBuffer(body), true)
+	result := filter.OnResponseBody(fake.NewFakeBodyBuffer(body), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnResponseBody_StreamingResponse_WithToolCalls(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 	mockHandle.EXPECT().Log(shared.LogLevelDebug, gomock.Any(), gomock.Any()).Times(1)
 
 	body := []byte(
@@ -830,14 +823,14 @@ func TestOnResponseBody_StreamingResponse_WithToolCalls(t *testing.T) {
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
 	filter.OnResponseHeaders(sseHeaders(), false)
 
-	result := filter.OnResponseBody(newTestBodyBuffer(body), true)
+	result := filter.OnResponseBody(fake.NewFakeBodyBuffer(body), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
 
 func TestOnResponseBody_StreamingResponse_ChunkSplitMidLine(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockHandle := mocks.NewMockHttpFilterHandle(ctrl)
+	mockHandle := newMockHTTPFilterHandle(ctrl)
 	mockHandle.EXPECT().Log(shared.LogLevelDebug, gomock.Any(), gomock.Any()).Times(1)
 
 	// Split a data line in the middle to test buffering of partial lines.
@@ -852,9 +845,9 @@ func TestOnResponseBody_StreamingResponse_ChunkSplitMidLine(t *testing.T) {
 	filter := &decoderFilter{handle: mockHandle, config: defaultCfg()}
 	filter.OnResponseHeaders(sseHeaders(), false)
 
-	result := filter.OnResponseBody(newTestBodyBuffer(chunk1), false)
+	result := filter.OnResponseBody(fake.NewFakeBodyBuffer(chunk1), false)
 	require.Equal(t, shared.BodyStatusContinue, result)
 
-	result = filter.OnResponseBody(newTestBodyBuffer(chunk2), true)
+	result = filter.OnResponseBody(fake.NewFakeBodyBuffer(chunk2), true)
 	require.Equal(t, shared.BodyStatusContinue, result)
 }
